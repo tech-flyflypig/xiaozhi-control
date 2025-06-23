@@ -157,8 +157,32 @@ private:
         thing_manager.AddThing(iot::CreateThing("Screen"));
         thing_manager.AddThing(iot::CreateThing("Lamp"));
         thing_manager.AddThing(iot::CreateThing("ThreeColorLight"));
+        
+        // 添加MQTT客户端Thing
+#if CONFIG_MQTT_DATA_CLIENT
+        auto mqtt_client = iot::CreateThing("MqttClient");
+        if (mqtt_client) {
+            thing_manager.AddThing(mqtt_client);
+            ESP_LOGI(TAG, "MQTT data client Thing added");
+        } else {
+            ESP_LOGW(TAG, "Failed to create MQTT data client Thing");
+        }
+#endif
+
 #elif CONFIG_IOT_PROTOCOL_MCP
         static LampController lamp(LAMP_GPIO);
+        
+        // 添加MQTT客户端Thing
+#if CONFIG_MQTT_DATA_CLIENT
+        auto& thing_manager = iot::ThingManager::GetInstance();
+        auto mqtt_client = iot::CreateThing("MqttClient");
+        if (mqtt_client) {
+            thing_manager.AddThing(mqtt_client);
+            ESP_LOGI(TAG, "MQTT data client Thing added");
+        } else {
+            ESP_LOGW(TAG, "Failed to create MQTT data client Thing");
+        }
+#endif
 #endif
     }
 

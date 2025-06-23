@@ -62,9 +62,9 @@ private:
 
 public:
     // 构造函数，可配置GPIO引脚
-    ThreeColorLight(gpio_num_t red_gpio = GPIO_NUM_18, 
-                   gpio_num_t green_gpio = GPIO_NUM_19, 
-                   gpio_num_t blue_gpio = GPIO_NUM_21) 
+    ThreeColorLight(gpio_num_t red_gpio = GPIO_NUM_3, 
+                   gpio_num_t green_gpio = GPIO_NUM_46, 
+                   gpio_num_t blue_gpio = GPIO_NUM_9) 
         : Thing("3clight", "三色LED灯，支持红绿蓝三种颜色的独立控制"),
           red_gpio_(red_gpio),
           green_gpio_(green_gpio),

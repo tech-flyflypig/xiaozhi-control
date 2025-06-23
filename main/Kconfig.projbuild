@@ -422,4 +422,31 @@ choice IOT_PROTOCOL
         bool "Xiaozhi IoT 1.0 (Deprecated)"
 endchoice
 
+config MQTT_DATA_CLIENT
+    bool "Enable MQTT Data Client"
+    default n
+    help
+        Enable MQTT data client for sending device data to MQTT broker.
+
+config MQTT_DATA_CLIENT_BROKER
+    string "Default MQTT Data Broker"
+    depends on MQTT_DATA_CLIENT
+    default ""
+    help
+        Default MQTT broker address for data client.
+
+config MQTT_DATA_CLIENT_PORT
+    int "Default MQTT Data Broker Port"
+    depends on MQTT_DATA_CLIENT
+    default 1883
+    help
+        Default MQTT broker port for data client.
+
+config MQTT_DATA_CLIENT_TOPIC
+    string "Default MQTT Data Topic"
+    depends on MQTT_DATA_CLIENT
+    default "xiaozhi/data"
+    help
+        Default MQTT topic for publishing device data.
+
 endmenu

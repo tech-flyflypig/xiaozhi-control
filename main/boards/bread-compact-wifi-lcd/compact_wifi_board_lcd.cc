@@ -158,6 +158,15 @@ private:
         thing_manager.AddThing(iot::CreateThing("Lamp"));
         thing_manager.AddThing(iot::CreateThing("ThreeColorLight"));
         
+        // 添加窗户控制器Thing，内置步进电机控制功能
+        auto window_controller = iot::CreateThing("WindowController");
+        if (window_controller) {
+            thing_manager.AddThing(window_controller);
+            ESP_LOGI(TAG, "窗户控制器Thing(内置步进电机控制)已添加");
+        } else {
+            ESP_LOGW(TAG, "创建窗户控制器Thing失败");
+        }
+        
         // 添加MQTT客户端Thing
 #if CONFIG_MQTT_DATA_CLIENT
         auto mqtt_client = iot::CreateThing("MqttClient");

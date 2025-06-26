@@ -157,7 +157,25 @@ private:
         thing_manager.AddThing(iot::CreateThing("Screen"));
         thing_manager.AddThing(iot::CreateThing("Lamp"));
         thing_manager.AddThing(iot::CreateThing("ThreeColorLight"));
-        
+
+        // 添加DHT11温湿度传感器Thing
+        auto dht11_sensor = iot::CreateThing("DHT11Sensor");
+        if (dht11_sensor) {
+            thing_manager.AddThing(dht11_sensor);
+            ESP_LOGI(TAG, "DHT11温湿度传感器Thing已添加");
+        } else {
+            ESP_LOGW(TAG, "创建DHT11温湿度传感器Thing失败");
+        }
+
+        // 添加光照强度传感器Thing
+        auto light_sensor = iot::CreateThing("LightSensor");
+        if (light_sensor) {
+            thing_manager.AddThing(light_sensor);
+            ESP_LOGI(TAG, "光照强度传感器Thing已添加");
+        } else {
+            ESP_LOGW(TAG, "创建光照强度传感器Thing失败");
+        }
+
         // 添加窗户控制器Thing，内置步进电机控制功能
         auto window_controller = iot::CreateThing("WindowController");
         if (window_controller) {
@@ -166,7 +184,7 @@ private:
         } else {
             ESP_LOGW(TAG, "创建窗户控制器Thing失败");
         }
-        
+
         // 添加MQTT客户端Thing
 #if CONFIG_MQTT_DATA_CLIENT
         auto mqtt_client = iot::CreateThing("MqttClient");

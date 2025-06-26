@@ -1,4 +1,5 @@
 #include "iot/thing.h"
+#include "iot/thing_manager.h"
 #include "board.h"
 #include "application.h"
 #include "system_info.h"
@@ -327,9 +328,69 @@ private:
         // 添加温度信息
         float temperature = 0;
         if (Board::GetInstance().GetTemperature(temperature)) {
-            cJSON_AddNumberToObject(root, "temperature", temperature);
+            cJSON_AddNumberToObject(root, "chip_temperature", temperature);
         }
-        
+
+        // 添加DHT11温湿度数据
+        #if 0
+        auto& thing_manager = iot::ThingManager::GetInstance();
+        auto dht11_thing = thing_manager.GetThing("DHT11Sensor");
+        if (dht11_thing) {
+            cJSON* dht11_data = cJSON_CreateObject();
+
+            // 获取温度数据
+            auto temp_property = dht11_thing->GetProperty("temperature");
+            if (temp_property && temp_property->type() == kValueTypeNumber) {
+                float dht11_temp = temp_property->number();
+                cJSON_AddNumberToObject(dht11_data, "temperature", dht11_temp);
+            }
+
+            // 获取湿度数据
+            auto humidity_property = dht11_thing->GetProperty("humidity");
+            if (humidity_property && humidity_property->type() == kValueTypeNumber) {
+                float dht11_humidity = humidity_property->number();
+                cJSON_AddNumberToObject(dht11_data, "humidity", dht11_humidity);
+            }
+
+            // 获取数据有效性
+            auto valid_property = dht11_thing->GetProperty("data_valid");
+            if (valid_property && valid_property->type() == kValueTypeBoolean) {
+                bool data_valid = valid_property->boolean();
+                cJSON_AddBoolToObject(dht11_data, "data_valid", data_valid);
+            }
+
+            cJSON_AddItemToObject(root, "dht11", dht11_data);
+        }
+
+        // 添加光照强度数据
+        auto light_thing = thing_manager.GetThing("LightSensor");
+        if (light_thing) {
+            cJSON* light_data = cJSON_CreateObject();
+
+            // 获取光照强度数据
+            auto intensity_property = light_thing->GetProperty("light_intensity");
+            if (intensity_property && intensity_property->type() == kValueTypeNumber) {
+                int light_intensity = intensity_property->number();
+                cJSON_AddNumberToObject(light_data, "intensity", light_intensity);
+            }
+
+            // 获取ADC原始值
+            auto raw_property = light_thing->GetProperty("raw_adc_value");
+            if (raw_property && raw_property->type() == kValueTypeNumber) {
+                int raw_adc = raw_property->number();
+                cJSON_AddNumberToObject(light_data, "raw_adc", raw_adc);
+            }
+
+            // 获取数据有效性
+            auto valid_property = light_thing->GetProperty("data_valid");
+            if (valid_property && valid_property->type() == kValueTypeBoolean) {
+                bool data_valid = valid_property->boolean();
+                cJSON_AddBoolToObject(light_data, "data_valid", data_valid);
+            }
+
+            cJSON_AddItemToObject(root, "light", light_data);
+        }
+        #endif
         // 转换为字符串
         char* json_str = cJSON_PrintUnformatted(root);
         std::string payload(json_str);

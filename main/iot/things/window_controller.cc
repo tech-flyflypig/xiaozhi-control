@@ -13,8 +13,8 @@ static const char *TAG = "WindowController";
 
 // 定义ULN2003驱动的步进电机控制引脚
 // 注意：避免与现有功能冲突，选择未被占用的GPIO引脚，如有冲突，请修改为未被占用的GPIO引脚
-#define STEPPER_IN1_PIN GPIO_NUM_1  // ULN2003 IN1
-#define STEPPER_IN2_PIN GPIO_NUM_17 // ULN2003 IN2
+#define STEPPER_IN1_PIN GPIO_NUM_17  // ULN2003 IN1
+#define STEPPER_IN2_PIN GPIO_NUM_18 // ULN2003 IN2
 #define STEPPER_IN3_PIN GPIO_NUM_19 // ULN2003 IN3
 #define STEPPER_IN4_PIN GPIO_NUM_20 // ULN2003 IN4
 

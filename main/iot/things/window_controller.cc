@@ -296,9 +296,9 @@ namespace iot
 
             // 测试简单的步进序列
             ESP_LOGI(TAG, "测试步进序列...");
-            Step(1, 1024, 10);
-            vTaskDelay(pdMS_TO_TICKS(1000));
-            Step(-1, 1024, 10);
+            Step(1, 256, 10);
+            // vTaskDelay(pdMS_TO_TICKS(1000));
+            // Step(-1, 1024, 10);
             // 停止电机
             StopMotor();
             ESP_LOGI(TAG, "电机测试完成");

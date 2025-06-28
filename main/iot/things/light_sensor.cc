@@ -25,6 +25,8 @@
 
 namespace iot
 {
+    // 全局ADC1句柄，供其他传感器共享使用
+    adc_oneshot_unit_handle_t g_adc1_handle = nullptr;
 
     class LightSensor : public Thing
     {
@@ -58,19 +60,36 @@ namespace iot
             }
             ESP_LOGI(TAG, "ADC1单元初始化成功");
 
-            // ADC1通道配置 - 为GPIO1(ADC1_CH0)配置
+            // 将ADC句柄赋值给全局变量，供其他传感器使用
+            g_adc1_handle = adc_handle_;
+
+            // ADC1通道配置 - 统一配置所有传感器需要的通道
             adc_oneshot_chan_cfg_t config = {
                 .atten = ADC_ATTEN_DB_12,    // 11dB衰减(0-3.3V范围)
                 .bitwidth = ADC_BITWIDTH_12, // 12位分辨率
             };
+
+            // 配置光照传感器通道
             ret = adc_oneshot_config_channel(adc_handle_, LIGHT_SENSOR_ADC_CHANNEL, &config);
             if (ret != ESP_OK)
             {
-                ESP_LOGE(TAG, "ADC通道配置失败: %s", esp_err_to_name(ret));
+                ESP_LOGE(TAG, "光照传感器ADC通道配置失败: %s", esp_err_to_name(ret));
                 adc_oneshot_del_unit(adc_handle_);
                 adc_handle_ = nullptr;
                 return;
             }
+
+            // 同时配置雨量传感器通道 (GPIO8 -> ADC1_CH7)
+            ret = adc_oneshot_config_channel(adc_handle_, ADC_CHANNEL_7, &config);
+            if (ret != ESP_OK)
+            {
+                ESP_LOGE(TAG, "雨量传感器ADC通道配置失败: %s", esp_err_to_name(ret));
+                adc_oneshot_del_unit(adc_handle_);
+                adc_handle_ = nullptr;
+                return;
+            }
+
+            ESP_LOGI(TAG, "ADC1所有通道配置完成 - 光照传感器(CH%d) + 雨量传感器(CH7)", LIGHT_SENSOR_ADC_CHANNEL);
 
             // 可选: 设置ADC校准
             if (do_calibration_)

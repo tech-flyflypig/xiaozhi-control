@@ -390,6 +390,64 @@ private:
 
             cJSON_AddItemToObject(root, "light", light_data);
         }
+
+        // 添加雨量传感器数据
+        auto rain_thing = thing_manager.GetThing("RainSensor");
+        if (rain_thing) {
+            cJSON* rain_data = cJSON_CreateObject();
+
+            // 获取雨量强度数据
+            auto intensity_property = rain_thing->GetProperty("rain_intensity");
+            if (intensity_property && intensity_property->type() == kValueTypeNumber) {
+                int rain_intensity = intensity_property->number();
+                cJSON_AddNumberToObject(rain_data, "intensity", rain_intensity);
+            }
+
+            // 获取ADC原始值
+            auto raw_property = rain_thing->GetProperty("raw_adc_value");
+            if (raw_property && raw_property->type() == kValueTypeNumber) {
+                int raw_adc = raw_property->number();
+                cJSON_AddNumberToObject(rain_data, "raw_adc", raw_adc);
+            }
+
+            // 获取数据有效性
+            auto valid_property = rain_thing->GetProperty("data_valid");
+            if (valid_property && valid_property->type() == kValueTypeBoolean) {
+                bool data_valid = valid_property->boolean();
+                cJSON_AddBoolToObject(rain_data, "data_valid", data_valid);
+            }
+
+            cJSON_AddItemToObject(root, "rain", rain_data);
+        }
+
+        // 添加甲醛传感器数据
+        auto hcho_thing = thing_manager.GetThing("HCHOSensor");
+        if (hcho_thing) {
+            cJSON* hcho_data = cJSON_CreateObject();
+
+            // 获取甲醛浓度数据
+            auto concentration_property = hcho_thing->GetProperty("hcho_concentration");
+            if (concentration_property && concentration_property->type() == kValueTypeNumber) {
+                float hcho_concentration = concentration_property->number();
+                cJSON_AddNumberToObject(hcho_data, "concentration", hcho_concentration);
+            }
+
+            // 获取原始值
+            auto raw_property = hcho_thing->GetProperty("raw_value");
+            if (raw_property && raw_property->type() == kValueTypeNumber) {
+                int raw_value = raw_property->number();
+                cJSON_AddNumberToObject(hcho_data, "raw_value", raw_value);
+            }
+
+            // 获取数据有效性
+            auto valid_property = hcho_thing->GetProperty("data_valid");
+            if (valid_property && valid_property->type() == kValueTypeBoolean) {
+                bool data_valid = valid_property->boolean();
+                cJSON_AddBoolToObject(hcho_data, "data_valid", data_valid);
+            }
+
+            cJSON_AddItemToObject(root, "hcho", hcho_data);
+        }
         #endif
         // 转换为字符串
         char* json_str = cJSON_PrintUnformatted(root);

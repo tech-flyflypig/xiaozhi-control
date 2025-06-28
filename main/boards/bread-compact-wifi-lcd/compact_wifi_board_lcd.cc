@@ -176,6 +176,24 @@ private:
             ESP_LOGW(TAG, "创建光照强度传感器Thing失败");
         }
 
+        // 添加雨量传感器Thing
+        auto rain_sensor = iot::CreateThing("RainSensor");
+        if (rain_sensor) {
+            thing_manager.AddThing(rain_sensor);
+            ESP_LOGI(TAG, "雨量传感器Thing已添加");
+        } else {
+            ESP_LOGW(TAG, "创建雨量传感器Thing失败");
+        }
+
+        // 添加甲醛传感器Thing
+        auto hcho_sensor = iot::CreateThing("HCHOSensor");
+        if (hcho_sensor) {
+            thing_manager.AddThing(hcho_sensor);
+            ESP_LOGI(TAG, "甲醛传感器Thing已添加");
+        } else {
+            ESP_LOGW(TAG, "创建甲醛传感器Thing失败");
+        }
+
         // 添加窗户控制器Thing，内置步进电机控制功能
         auto window_controller = iot::CreateThing("WindowController");
         if (window_controller) {

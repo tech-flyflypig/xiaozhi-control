@@ -86,93 +86,105 @@ public:
             return blue_state_;
         });
         
-        // 定义组合属性：当前点亮的颜色组合
-        properties_.AddStringProperty("color_combination", "当前点亮的颜色组合", [this]() -> std::string {
-            std::string result = "";
-            if (red_state_) result += "红";
-            if (green_state_) result += "绿";  
-            if (blue_state_) result += "蓝";
-            return result.empty() ? "关闭" : result;
+        // 定义组合属性：当前颜色状态（5种状态）
+        properties_.AddStringProperty("color_status", "当前颜色状态", [this]() -> std::string {
+            if (red_state_ && green_state_ && blue_state_) {
+                return "白光";
+            } else if (red_state_ && !green_state_ && !blue_state_) {
+                return "红色";
+            } else if (!red_state_ && green_state_ && !blue_state_) {
+                return "绿色";
+            } else if (!red_state_ && !green_state_ && blue_state_) {
+                return "蓝色";
+            } else {
+                return "关闭";
+            }
         });
         
-        // 定义方法：单独控制每种颜色
-        methods_.AddMethod("TurnOnRed", "打开红色LED", ParameterList(), 
+        // 定义方法：单独控制每种颜色（确保只有一种颜色亮）
+        methods_.AddMethod("TurnOnRed", "打开红色LED", ParameterList(),
                           [this](const ParameterList& parameters) {
+            // 先关闭所有颜色，再点亮红色
+            red_state_ = false;
+            green_state_ = false;
+            blue_state_ = false;
             red_state_ = true;
             UpdateGpioState();
             ESP_LOGI(TAG, "红色LED已打开");
         });
-        
-        methods_.AddMethod("TurnOffRed", "关闭红色LED", ParameterList(), 
+
+        methods_.AddMethod("TurnOffRed", "关闭红色LED", ParameterList(),
                           [this](const ParameterList& parameters) {
             red_state_ = false;
             UpdateGpioState();
             ESP_LOGI(TAG, "红色LED已关闭");
         });
-        
-        methods_.AddMethod("TurnOnGreen", "打开绿色LED", ParameterList(), 
+
+        methods_.AddMethod("TurnOnGreen", "打开绿色LED", ParameterList(),
                           [this](const ParameterList& parameters) {
+            // 先关闭所有颜色，再点亮绿色
+            red_state_ = false;
+            green_state_ = false;
+            blue_state_ = false;
             green_state_ = true;
             UpdateGpioState();
             ESP_LOGI(TAG, "绿色LED已打开");
         });
-        
-        methods_.AddMethod("TurnOffGreen", "关闭绿色LED", ParameterList(), 
+
+        methods_.AddMethod("TurnOffGreen", "关闭绿色LED", ParameterList(),
                           [this](const ParameterList& parameters) {
             green_state_ = false;
             UpdateGpioState();
             ESP_LOGI(TAG, "绿色LED已关闭");
         });
-        
-        methods_.AddMethod("TurnOnBlue", "打开蓝色LED", ParameterList(), 
+
+        methods_.AddMethod("TurnOnBlue", "打开蓝色LED", ParameterList(),
                           [this](const ParameterList& parameters) {
+            // 先关闭所有颜色，再点亮蓝色
+            red_state_ = false;
+            green_state_ = false;
+            blue_state_ = false;
             blue_state_ = true;
             UpdateGpioState();
             ESP_LOGI(TAG, "蓝色LED已打开");
         });
-        
-        methods_.AddMethod("TurnOffBlue", "关闭蓝色LED", ParameterList(), 
+
+        methods_.AddMethod("TurnOffBlue", "关闭蓝色LED", ParameterList(),
                           [this](const ParameterList& parameters) {
             blue_state_ = false;
             UpdateGpioState();
             ESP_LOGI(TAG, "蓝色LED已关闭");
         });
         
-        // 定义方法：颜色组合控制
-        methods_.AddMethod("SetColor", "设置指定颜色组合", ParameterList({
-            Parameter("color", "颜色名称：红/绿/蓝/黄(红+绿)/紫(红+蓝)/青(绿+蓝)/白(红+绿+蓝)/关闭", kValueTypeString, true)
+        // 定义方法：颜色控制（只支持5种状态）
+        methods_.AddMethod("SetColor", "设置指定颜色", ParameterList({
+            Parameter("color", "颜色名称：红/绿/蓝/白/关闭", kValueTypeString, true)
         }), [this](const ParameterList& parameters) {
             std::string color = parameters["color"].string();
-            
+
             // 先全部关闭
             red_state_ = false;
             green_state_ = false;
             blue_state_ = false;
-            
-            // 根据颜色名称设置对应状态
+
+            // 根据颜色名称设置对应状态（只支持5种状态）
             if (color == "红" || color == "红色") {
                 red_state_ = true;
             } else if (color == "绿" || color == "绿色") {
                 green_state_ = true;
             } else if (color == "蓝" || color == "蓝色") {
                 blue_state_ = true;
-            } else if (color == "黄" || color == "黄色") {
-                red_state_ = true;
-                green_state_ = true;
-            } else if (color == "紫" || color == "紫色") {
-                red_state_ = true;
-                blue_state_ = true;
-            } else if (color == "青" || color == "青色") {
-                green_state_ = true;
-                blue_state_ = true;
-            } else if (color == "白" || color == "白色") {
+            } else if (color == "白" || color == "白色" || color == "白光") {
                 red_state_ = true;
                 green_state_ = true;
                 blue_state_ = true;
             } else if (color == "关闭" || color == "关") {
                 // 已经全部设为false
+            } else {
+                ESP_LOGW(TAG, "不支持的颜色: %s，只支持红/绿/蓝/白/关闭", color.c_str());
+                return;
             }
-            
+
             UpdateGpioState();
             ESP_LOGI(TAG, "颜色设置为: %s", color.c_str());
         });
@@ -196,23 +208,38 @@ public:
             ESP_LOGI(TAG, "所有颜色已关闭");
         });
         
-        // 定义方法：切换单个颜色状态
-        methods_.AddMethod("ToggleColor", "切换指定颜色的开关状态", ParameterList({
-            Parameter("color", "要切换的颜色：红/绿/蓝", kValueTypeString, true)
-        }), [this](const ParameterList& parameters) {
-            std::string color = parameters["color"].string();
-            
-            if (color == "红" || color == "红色") {
-                red_state_ = !red_state_;
-                ESP_LOGI(TAG, "红色LED切换为: %s", red_state_ ? "开" : "关");
-            } else if (color == "绿" || color == "绿色") {
-                green_state_ = !green_state_;
-                ESP_LOGI(TAG, "绿色LED切换为: %s", green_state_ ? "开" : "关");
-            } else if (color == "蓝" || color == "蓝色") {
-                blue_state_ = !blue_state_;
-                ESP_LOGI(TAG, "蓝色LED切换为: %s", blue_state_ ? "开" : "关");
+        // 定义方法：状态切换（在5种状态间循环）
+        methods_.AddMethod("ToggleState", "在5种状态间循环切换", ParameterList(),
+                          [this](const ParameterList& parameters) {
+            // 当前状态判断和切换逻辑
+            if (!red_state_ && !green_state_ && !blue_state_) {
+                // 关闭 -> 红色
+                red_state_ = true;
+                ESP_LOGI(TAG, "切换到红色");
+            } else if (red_state_ && !green_state_ && !blue_state_) {
+                // 红色 -> 绿色
+                red_state_ = false;
+                green_state_ = true;
+                ESP_LOGI(TAG, "切换到绿色");
+            } else if (!red_state_ && green_state_ && !blue_state_) {
+                // 绿色 -> 蓝色
+                green_state_ = false;
+                blue_state_ = true;
+                ESP_LOGI(TAG, "切换到蓝色");
+            } else if (!red_state_ && !green_state_ && blue_state_) {
+                // 蓝色 -> 白光
+                red_state_ = true;
+                green_state_ = true;
+                blue_state_ = true;
+                ESP_LOGI(TAG, "切换到白光");
+            } else {
+                // 白光或其他状态 -> 关闭
+                red_state_ = false;
+                green_state_ = false;
+                blue_state_ = false;
+                ESP_LOGI(TAG, "切换到关闭");
             }
-            
+
             UpdateGpioState();
         });
     }

@@ -86,6 +86,15 @@ public:
     }
 
     const Property& operator[](const std::string& name) const {
+        for (const auto& property : properties_) {
+            if (property.name() == name) {
+                return property;
+            }
+        }
+        throw std::runtime_error("Property not found: " + name);
+    }
+
+    Property& operator[](const std::string& name) {
         for (auto& property : properties_) {
             if (property.name() == name) {
                 return property;
@@ -181,6 +190,24 @@ public:
         throw std::runtime_error("Parameter not found: " + name);
     }
 
+    // Index-based access
+    Parameter& operator[](size_t index) {
+        if (index >= parameters_.size()) {
+            throw std::out_of_range("Parameter index out of range");
+        }
+        return parameters_[index];
+    }
+
+    const Parameter& operator[](size_t index) const {
+        if (index >= parameters_.size()) {
+            throw std::out_of_range("Parameter index out of range");
+        }
+        return parameters_[index];
+    }
+
+    // Size method
+    size_t size() const { return parameters_.size(); }
+
     // iterator
     auto begin() { return parameters_.begin(); }
     auto end() { return parameters_.end(); }
@@ -269,6 +296,12 @@ public:
     virtual std::string GetDescriptorJson();
     virtual std::string GetStateJson();
     virtual void Invoke(const cJSON* command);
+
+    // 新增：简化的方法调用接口
+    virtual bool InvokeMethod(const std::string& method_name, const ParameterList& parameters = ParameterList());
+
+    // 新增：获取属性值的公共接口
+    virtual Property* GetProperty(const std::string& property_name);
 
     const std::string& name() const { return name_; }
     const std::string& description() const { return description_; }

@@ -88,5 +88,29 @@ void Thing::Invoke(const cJSON* command) {
     }
 }
 
+bool Thing::InvokeMethod(const std::string& method_name, const ParameterList& parameters) {
+    try {
+        auto& method = methods_[method_name];
+        // 复制参数到方法的参数列表
+        for (size_t i = 0; i < parameters.size() && i < method.parameters().size(); ++i) {
+            method.parameters()[i] = parameters[i];
+        }
+        method.Invoke();
+        return true;
+    } catch (const std::runtime_error& e) {
+        ESP_LOGE(TAG, "Method not found or failed: %s", method_name.c_str());
+        return false;
+    }
+}
+
+Property* Thing::GetProperty(const std::string& property_name) {
+    try {
+        return &properties_[property_name];
+    } catch (const std::runtime_error& e) {
+        ESP_LOGE(TAG, "Property not found: %s", property_name.c_str());
+        return nullptr;
+    }
+}
+
 
 } // namespace iot

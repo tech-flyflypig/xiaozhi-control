@@ -194,6 +194,24 @@ private:
             ESP_LOGW(TAG, "创建甲醛传感器Thing失败");
         }
 
+        // 添加风扇Thing
+        auto fan = iot::CreateThing("Fan");
+        if (fan) {
+            thing_manager.AddThing(fan);
+            ESP_LOGI(TAG, "风扇Thing已添加");
+        } else {
+            ESP_LOGW(TAG, "创建风扇Thing失败");
+        }
+
+        // 添加蜂鸣器Thing
+        auto buzzer = iot::CreateThing("Buzzer");
+        if (buzzer) {
+            thing_manager.AddThing(buzzer);
+            ESP_LOGI(TAG, "蜂鸣器Thing已添加");
+        } else {
+            ESP_LOGW(TAG, "创建蜂鸣器Thing失败");
+        }
+
         // 添加窗户控制器Thing，内置步进电机控制功能
         auto window_controller = iot::CreateThing("WindowController");
         if (window_controller) {

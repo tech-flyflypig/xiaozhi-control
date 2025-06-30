@@ -221,6 +221,15 @@ private:
             ESP_LOGW(TAG, "创建窗户控制器Thing失败");
         }
 
+        // 添加自动化控制器Thing
+        auto automation_controller = iot::CreateThing("AutomationController");
+        if (automation_controller) {
+            thing_manager.AddThing(automation_controller);
+            ESP_LOGI(TAG, "自动化控制器Thing已添加");
+        } else {
+            ESP_LOGW(TAG, "创建自动化控制器Thing失败");
+        }
+
         // 添加MQTT客户端Thing
 #if CONFIG_MQTT_DATA_CLIENT
         auto mqtt_client = iot::CreateThing("MqttClient");

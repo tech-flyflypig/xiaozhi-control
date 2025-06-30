@@ -52,6 +52,8 @@ namespace iot
         int target_position_ = 0;                   // 目标位置(步数)
         int step_delay_ms_ = DEFAULT_STEP_DELAY_MS; // 步进延迟时间(ms)
         bool window_opened_ = false;                // 窗户状态(false:关闭, true:打开)
+        bool auto_mode_ = false;                    // 自动模式开关
+        int rain_threshold_ = 30;                   // 雨量阈值 (%)
 
         // 硬件定时器相关
         gptimer_handle_t gptimer = nullptr;                     // 定时器句柄
@@ -438,6 +440,26 @@ namespace iot
             window_opened_ = (position_ >= WINDOW_FULL_STEPS / 2);
         }
 
+        // 自动控制窗户（基于雨量）
+        void AutoControlWindow(int rain_intensity)
+        {
+            if (!auto_mode_) return;
+
+            if (rain_intensity > rain_threshold_ && window_opened_) {
+                // 雨量超过阈值且窗户开着，自动关闭
+                window_opened_ = false;
+                ESP_LOGI(TAG, "自动模式: 雨量强度%d%%超过阈值%d%%，自动关闭窗户",
+                         rain_intensity, rain_threshold_);
+                StartMotor(false);
+            } else if (rain_intensity <= (rain_threshold_ - 10) && !window_opened_) {  // 10%滞后
+                // 雨量低于阈值且窗户关着，可以考虑自动打开（但通常不建议自动打开）
+                // 这里只记录日志，不自动打开窗户
+                StartMotor(true);
+                ESP_LOGI(TAG, "自动模式: 雨量强度%d%%低于阈值%d%%，可手动打开窗户",
+                         rain_intensity, rain_threshold_ - 10);
+            }
+        }
+
     public:
         WindowController(gpio_num_t in1_pin = STEPPER_IN1_PIN,
                          gpio_num_t in2_pin = STEPPER_IN2_PIN,
@@ -462,6 +484,12 @@ namespace iot
 
             properties_.AddBooleanProperty("opened", "窗户是否打开", [this]() -> bool
                                            { return window_opened_; });
+
+            properties_.AddBooleanProperty("auto_mode", "自动模式开关", [this]() -> bool
+                                           { return auto_mode_; });
+
+            properties_.AddNumberProperty("rain_threshold", "雨量阈值(%)", [this]() -> int
+                                          { return rain_threshold_; });
 
             // 定义窗户控制方法（作为语音控制的接口）
             methods_.AddMethod("OpenWindow", "打开窗户", ParameterList(),
@@ -665,10 +693,66 @@ namespace iot
 
             StopMotor(); });
 
+            // 自动模式控制方法
+            methods_.AddMethod("enable_auto_mode", "启用自动模式", ParameterList(),
+                               [this](const ParameterList &params)
+                               {
+                                   auto_mode_ = true;
+                                   ESP_LOGI(TAG, "窗户自动模式已启用");
+                               });
+
+            methods_.AddMethod("disable_auto_mode", "禁用自动模式", ParameterList(),
+                               [this](const ParameterList &params)
+                               {
+                                   auto_mode_ = false;
+                                   ESP_LOGI(TAG, "窗户自动模式已禁用");
+                               });
+
+            // 设置雨量阈值方法
+            methods_.AddMethod("set_rain_threshold", "设置雨量阈值",
+                               ParameterList({Parameter("threshold", "雨量阈值(%)", kValueTypeNumber, true)}),
+                               [this](const ParameterList &params)
+                               {
+                                   try
+                                   {
+                                       int threshold = params["threshold"].number();
+                                       if (threshold > 0 && threshold <= 100)
+                                       { // 0-100%范围
+                                           rain_threshold_ = threshold;
+                                           ESP_LOGI(TAG, "窗户雨量阈值已设置为: %d%%", threshold);
+                                       }
+                                       else
+                                       {
+                                           ESP_LOGW(TAG, "雨量阈值超出范围: 0-100%%");
+                                       }
+                                   }
+                                   catch (const std::exception &e)
+                                   {
+                                       ESP_LOGW(TAG, "设置雨量阈值失败：%s", e.what());
+                                   }
+                               });
+
+            // 手动雨量控制方法（供自动化控制器调用）
+            methods_.AddMethod("auto_control", "基于雨量自动控制",
+                               ParameterList({Parameter("rain_intensity", "当前雨量强度(%)", kValueTypeNumber, true)}),
+                               [this](const ParameterList &params)
+                               {
+                                   try
+                                   {
+                                       int rain_intensity = params["rain_intensity"].number();
+                                       AutoControlWindow(rain_intensity);
+                                   }
+                                   catch (const std::exception &e)
+                                   {
+                                       ESP_LOGW(TAG, "自动控制失败：%s", e.what());
+                                   }
+                               });
+
             // 初始化窗户状态（默认为关闭状态）
             position_ = 0;              // 位置设为0（关闭位置）
             window_opened_ = false;     // 状态设为关闭
-            ESP_LOGI(TAG, "窗户控制器初始化完成，默认状态: 关闭");
+            auto_mode_ = false;         // 默认关闭自动模式
+            ESP_LOGI(TAG, "窗户控制器初始化完成，默认状态: 关闭，自动模式: 禁用");
         }
 
         ~WindowController()

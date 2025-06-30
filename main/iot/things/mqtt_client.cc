@@ -37,10 +37,21 @@ namespace iot
         std::string topic_ = "";
         int publish_interval_ms_ = MQTT_DATA_PUBLISH_INTERVAL_MS;
 
-        // 报警阈值
-        int hcho_threshold_ = 50;   // 甲醛阈值 (默认50)
-        int temp_threshold_ = 3000; // 温度阈值 (默认30.00度)
-        int humi_threshold_ = 8000; // 湿度阈值 (默认80.00%)
+        // 传感器阈值 - 支持上下阈值
+        int temp_threshold_high_ = 3000;    // 温度上阈值 (默认30.00°C)
+        int temp_threshold_low_ = 1000;     // 温度下阈值 (默认10.00°C)
+        int humi_threshold_high_ = 8000;    // 湿度上阈值 (默认80.00%)
+        int humi_threshold_low_ = 2000;     // 湿度下阈值 (默认20.00%)
+        int hcho_threshold_high_ = 100;     // 甲醛上阈值 (默认100 μg/m³)
+        int hcho_threshold_low_ = 10;       // 甲醛下阈值 (默认10 μg/m³)
+        int light_threshold_high_ = 80;     // 光照上阈值 (默认80%)
+        int light_threshold_low_ = 20;      // 光照下阈值 (默认20%)
+        int rain_threshold_high_ = 70;      // 雨量上阈值 (默认70%)
+        int rain_threshold_low_ = 10;       // 雨量下阈值 (默认10%)
+
+        // 联动阈值
+        int fan_temp_threshold_ = 2800;     // 风扇温度联动阈值 (默认28.00°C)
+        int window_rain_threshold_ = 30;    // 窗户雨量联动阈值 (默认30%)
 
         // 定义事件位
         static const int MQTT_CONNECTED_BIT = BIT0;
@@ -63,6 +74,32 @@ namespace iot
                                           { return topic_; });
             properties_.AddNumberProperty("interval", "数据发布间隔(毫秒)", [this]() -> int
                                           { return publish_interval_ms_; });
+
+            // 添加阈值属性
+            properties_.AddNumberProperty("temp_threshold_high", "温度上阈值(°C*100)", [this]() -> int
+                                          { return temp_threshold_high_; });
+            properties_.AddNumberProperty("temp_threshold_low", "温度下阈值(°C*100)", [this]() -> int
+                                          { return temp_threshold_low_; });
+            properties_.AddNumberProperty("humi_threshold_high", "湿度上阈值(%*100)", [this]() -> int
+                                          { return humi_threshold_high_; });
+            properties_.AddNumberProperty("humi_threshold_low", "湿度下阈值(%*100)", [this]() -> int
+                                          { return humi_threshold_low_; });
+            properties_.AddNumberProperty("hcho_threshold_high", "甲醛上阈值(μg/m³)", [this]() -> int
+                                          { return hcho_threshold_high_; });
+            properties_.AddNumberProperty("hcho_threshold_low", "甲醛下阈值(μg/m³)", [this]() -> int
+                                          { return hcho_threshold_low_; });
+            properties_.AddNumberProperty("light_threshold_high", "光照上阈值(%)", [this]() -> int
+                                          { return light_threshold_high_; });
+            properties_.AddNumberProperty("light_threshold_low", "光照下阈值(%)", [this]() -> int
+                                          { return light_threshold_low_; });
+            properties_.AddNumberProperty("rain_threshold_high", "雨量上阈值(%)", [this]() -> int
+                                          { return rain_threshold_high_; });
+            properties_.AddNumberProperty("rain_threshold_low", "雨量下阈值(%)", [this]() -> int
+                                          { return rain_threshold_low_; });
+            properties_.AddNumberProperty("fan_temp_threshold", "风扇温度联动阈值(°C*100)", [this]() -> int
+                                          { return fan_temp_threshold_; });
+            properties_.AddNumberProperty("window_rain_threshold", "窗户雨量联动阈值(%)", [this]() -> int
+                                          { return window_rain_threshold_; });
 
             // 定义方法
             ParameterList start_params;
@@ -120,20 +157,36 @@ namespace iot
                                    // 返回当前阈值设置
                                });
 
-            methods_.AddMethod("set_threshold", "设置报警阈值", ParameterList({Parameter("type", "阈值类型(hcho/temp/humi)", kValueTypeString, true), Parameter("value", "阈值数值", kValueTypeNumber, true)}), [this](const ParameterList &parameters)
-                               {
-            std::string type = parameters["type"].string();
-            int value = parameters["value"].number();
+            // 设置设备阈值 - 按照Arduino代码格式
+        methods_.AddMethod("set_device_threshold", "设置设备阈值",
+                          ParameterList({Parameter("device", "设备ID(0-6)", kValueTypeNumber, true),
+                                        Parameter("thresholdMax", "最大阈值", kValueTypeNumber, true),
+                                        Parameter("thresholdMin", "最小阈值", kValueTypeNumber, true),
+                                        Parameter("islink", "自动模式开关", kValueTypeBoolean, true)}),
+                          [this](const ParameterList &parameters) {
+            try {
+                int device = parameters["device"].number();
+                float threshold_max = parameters["thresholdMax"].number();
+                float threshold_min = parameters["thresholdMin"].number();
+                bool islink = parameters["islink"].boolean();
 
-            if (type == "hcho") {
-                hcho_threshold_ = value;
-            } else if (type == "temp") {
-                temp_threshold_ = value;
-            } else if (type == "humi") {
-                humi_threshold_ = value;
+                // 构造JSON消息并调用HandleThresholdMessage
+                cJSON *root = cJSON_CreateObject();
+                cJSON_AddNumberToObject(root, "device", device);
+                cJSON_AddNumberToObject(root, "thresholdMax", threshold_max);
+                cJSON_AddNumberToObject(root, "thresholdMin", threshold_min);
+                cJSON_AddBoolToObject(root, "islink", islink);
+
+                char *json_string = cJSON_Print(root);
+                if (json_string) {
+                    HandleThresholdMessage(std::string(json_string));
+                    free(json_string);
+                }
+                cJSON_Delete(root);
+            } catch (const std::exception& e) {
+                ESP_LOGW(TAG, "设置设备阈值失败：%s", e.what());
             }
-
-            SaveThresholds(); });
+        });
 
             // 从设置中加载配置
             LoadConfig();
@@ -500,6 +553,7 @@ namespace iot
                     {
                         ESP_LOGW(TAG, "风扇控制命令无效: %s (应为 on 或 off)", fan_cmd.c_str());
                     }
+                    fan_thing->InvokeMethod("disable_auto_mode");
                 }
                 else
                 {
@@ -529,6 +583,7 @@ namespace iot
                     {
                         ESP_LOGW(TAG, "窗户控制命令无效: %s (应为 on 或 off)", window_cmd.c_str());
                     }
+                    window_thing->InvokeMethod("disable_auto_mode");
                 }
                 else
                 {
@@ -616,45 +671,200 @@ namespace iot
             cJSON_Delete(root);
         }
 
-        // 处理阈值设置消息
+        // 处理阈值设置消息 - 按照Arduino代码格式
         void HandleThresholdMessage(const std::string &payload)
         {
+            ESP_LOGI(TAG, "开始处理阈值设置消息: %s", payload.c_str());
+
             cJSON *root = cJSON_Parse(payload.c_str());
             if (!root)
             {
+                ESP_LOGE(TAG, "阈值消息JSON解析失败");
                 return;
             }
 
+            // 解析参数
+            cJSON *device_json = cJSON_GetObjectItem(root, "device");
+            cJSON *threshold_max_json = cJSON_GetObjectItem(root, "thresholdMax");
+            cJSON *threshold_min_json = cJSON_GetObjectItem(root, "thresholdMin");
+            cJSON *islink_json = cJSON_GetObjectItem(root, "islink");
+
+            // 检查必需的参数
+            if (!device_json || (!cJSON_IsNumber(device_json)) ||
+                !threshold_max_json || (!cJSON_IsNumber(threshold_max_json) && !cJSON_IsString(threshold_max_json)))
+            {
+                ESP_LOGW(TAG, "阈值消息缺少必需参数或参数类型错误");
+                cJSON_Delete(root);
+                return;
+            }
+
+            int device = device_json->valueint;
+            float threshold_max;
+            if (cJSON_IsNumber(threshold_max_json)) {
+                threshold_max = threshold_max_json->valuedouble;
+            } else {
+                // 处理字符串格式的数值
+                threshold_max = atof(threshold_max_json->valuestring);
+            }
+
+            // 根据设备类型处理不同的参数
+            float threshold_min = 0.0f;
+            bool islink = false;
+
+            if (device >= 0 && device <= 4) {
+                // 传感器阈值设置：需要 thresholdMin，不需要 islink
+                if (!threshold_min_json || (!cJSON_IsNumber(threshold_min_json) && !cJSON_IsString(threshold_min_json))) {
+                    ESP_LOGW(TAG, "传感器阈值设置缺少 thresholdMin 参数");
+                    cJSON_Delete(root);
+                    return;
+                }
+                if (cJSON_IsNumber(threshold_min_json)) {
+                    threshold_min = threshold_min_json->valuedouble;
+                } else {
+                    threshold_min = atof(threshold_min_json->valuestring);
+                }
+
+                ESP_LOGI(TAG, "\n=== 传感器阈值设置 ===");
+                ESP_LOGI(TAG, "设备ID: %d", device);
+                ESP_LOGI(TAG, "最大阈值: %.2f", threshold_max);
+                ESP_LOGI(TAG, "最小阈值: %.2f", threshold_min);
+                ESP_LOGI(TAG, "===============");
+            } else if (device >= 5 && device <= 6) {
+                // 风扇/窗户阈值设置：需要 islink，不需要 thresholdMin
+                if (!islink_json || !cJSON_IsBool(islink_json)) {
+                    ESP_LOGW(TAG, "风扇/窗户阈值设置缺少 islink 参数");
+                    cJSON_Delete(root);
+                    return;
+                }
+                islink = cJSON_IsTrue(islink_json);
+
+                ESP_LOGI(TAG, "\n=== 设备联动设置 ===");
+                ESP_LOGI(TAG, "设备ID: %d", device);
+                ESP_LOGI(TAG, "联动阈值: %.2f", threshold_max);
+                ESP_LOGI(TAG, "自动模式: %s", islink ? "开启" : "关闭");
+                ESP_LOGI(TAG, "===============");
+            } else {
+                ESP_LOGW(TAG, "未知设备ID: %d", device);
+                cJSON_Delete(root);
+                return;
+            }
+
+            auto& thing_manager = iot::ThingManager::GetInstance();
+
             bool need_save = false;
 
-            // 设置甲醛阈值
-            cJSON *hcho = cJSON_GetObjectItem(root, "HCHO");
-            if (cJSON_IsNumber(hcho))
+            switch (device)
             {
-                hcho_threshold_ = hcho->valueint;
+            case 0: // 温度
+                temp_threshold_high_ = (int)(threshold_max * 100);
+                temp_threshold_low_ = (int)(threshold_min * 100);
                 need_save = true;
+                ESP_LOGI(TAG, "温度阈值已更新: %.2f-%.2f°C", threshold_min, threshold_max);
+                break;
+
+            case 1: // 湿度
+                humi_threshold_high_ = (int)(threshold_max * 100);
+                humi_threshold_low_ = (int)(threshold_min * 100);
+                need_save = true;
+                ESP_LOGI(TAG, "湿度阈值已更新: %.2f-%.2f%%", threshold_min, threshold_max);
+                break;
+
+            case 2: // 光照
+                light_threshold_high_ = (int)threshold_max;
+                light_threshold_low_ = (int)threshold_min;
+                need_save = true;
+                ESP_LOGI(TAG, "光照阈值已更新: %.0f-%.0f%%", threshold_min, threshold_max);
+                break;
+
+            case 3: // 甲醛
+                hcho_threshold_high_ = (int)(threshold_max * 1000);
+                hcho_threshold_low_ = (int)(threshold_min * 1000);
+                need_save = true;
+                ESP_LOGI(TAG, "甲醛阈值已更新: %.3f-%.3f mg/m³", threshold_min, threshold_max);
+                break;
+
+            case 4: // 雨量
+                rain_threshold_high_ = (int)threshold_max;
+                rain_threshold_low_ = (int)threshold_min;
+                need_save = true;
+                ESP_LOGI(TAG, "雨量阈值已更新: %.0f-%.0f%%", threshold_min, threshold_max);
+                break;
+
+            case 5: // 风扇
+                {
+                    auto fan = thing_manager.GetThingByName("Fan");
+                    if (fan) {
+                        // 设置风扇温度阈值
+                        Parameter threshold_param("threshold", "温度阈值(°C*100)", kValueTypeNumber, true);
+                        threshold_param.set_number((int)(threshold_max * 100));
+                        ParameterList params({threshold_param});
+                        fan->InvokeMethod("set_temp_threshold", params);
+
+                        // 设置自动模式
+                        if (islink) {
+                            fan->InvokeMethod("enable_auto_mode");
+                        } else {
+                            fan->InvokeMethod("disable_auto_mode");
+                        }
+
+                        ESP_LOGI(TAG, "风扇阈值设置完成: %.2f°C, 自动模式: %s",
+                                threshold_max, islink ? "开启" : "关闭");
+                    }
+
+                    // 同步更新自动化控制器中的风扇联动阈值
+                    auto automation_controller = thing_manager.GetThingByName("AutomationController");
+                    if (automation_controller) {
+                        Parameter threshold_param("threshold", "风扇温度联动阈值(°C*100)", kValueTypeNumber, true);
+                        threshold_param.set_number((int)(threshold_max * 100));
+                        ParameterList params({threshold_param});
+                        automation_controller->InvokeMethod("set_fan_temp_threshold", params);
+                        ESP_LOGI(TAG, "自动化控制器风扇联动阈值已同步更新: %.2f°C", threshold_max);
+                    }
+                }
+                break;
+
+            case 6: // 窗户
+                {
+                    auto window = thing_manager.GetThingByName("WindowController");
+                    if (window) {
+                        // 设置窗户雨量阈值
+                        Parameter threshold_param("threshold", "雨量阈值(%)", kValueTypeNumber, true);
+                        threshold_param.set_number((int)threshold_max);
+                        ParameterList params({threshold_param});
+                        window->InvokeMethod("set_rain_threshold", params);
+
+                        // 设置自动模式
+                        if (islink) {
+                            window->InvokeMethod("enable_auto_mode");
+                        } else {
+                            window->InvokeMethod("disable_auto_mode");
+                        }
+
+                        ESP_LOGI(TAG, "窗户阈值设置完成: %.0f%%, 自动模式: %s",
+                                threshold_max, islink ? "开启" : "关闭");
+                    }
+
+                    // 同步更新自动化控制器中的窗户联动阈值
+                    auto automation_controller = thing_manager.GetThingByName("AutomationController");
+                    if (automation_controller) {
+                        Parameter threshold_param("threshold", "窗户雨量联动阈值(%)", kValueTypeNumber, true);
+                        threshold_param.set_number((int)threshold_max);
+                        ParameterList params({threshold_param});
+                        automation_controller->InvokeMethod("set_window_rain_threshold", params);
+                        ESP_LOGI(TAG, "自动化控制器窗户联动阈值已同步更新: %.0f%%", threshold_max);
+                    }
+                }
+                break;
+
+            default:
+                ESP_LOGW(TAG, "未知设备ID: %d", device);
+                break;
             }
 
-            // 设置温度阈值
-            cJSON *temp = cJSON_GetObjectItem(root, "TEMP");
-            if (cJSON_IsNumber(temp))
-            {
-                temp_threshold_ = temp->valueint;
-                need_save = true;
-            }
-
-            // 设置湿度阈值
-            cJSON *humi = cJSON_GetObjectItem(root, "HUMI");
-            if (cJSON_IsNumber(humi))
-            {
-                humi_threshold_ = humi->valueint;
-                need_save = true;
-            }
-
-            // 保存阈值到NVS
-            if (need_save)
-            {
+            // 统一保存阈值 - 优化存储时机，一次性保存所有更改
+            if (need_save) {
                 SaveThresholds();
+                ESP_LOGI(TAG, "MQTT客户端阈值配置已保存到NVS");
             }
 
             cJSON_Delete(root);
@@ -664,18 +874,44 @@ namespace iot
         void SaveThresholds()
         {
             Settings settings("data_mqtt", true);
-            settings.SetInt("hcho_threshold", hcho_threshold_);
-            settings.SetInt("temp_threshold", temp_threshold_);
-            settings.SetInt("humi_threshold", humi_threshold_);
+
+            // 保存传感器上下阈值
+            settings.SetInt("temp_high", temp_threshold_high_);
+            settings.SetInt("temp_low", temp_threshold_low_);
+            settings.SetInt("humi_high", humi_threshold_high_);
+            settings.SetInt("humi_low", humi_threshold_low_);
+            settings.SetInt("hcho_high", hcho_threshold_high_);
+            settings.SetInt("hcho_low", hcho_threshold_low_);
+            settings.SetInt("light_high", light_threshold_high_);
+            settings.SetInt("light_low", light_threshold_low_);
+            settings.SetInt("rain_high", rain_threshold_high_);
+            settings.SetInt("rain_low", rain_threshold_low_);
+
+            // 保存联动阈值
+            settings.SetInt("fan_temp", fan_temp_threshold_);
+            settings.SetInt("window_rain", window_rain_threshold_);
         }
 
         // 从NVS加载阈值
         void LoadThresholds()
         {
             Settings settings("data_mqtt", false);
-            hcho_threshold_ = settings.GetInt("hcho_threshold", 50);
-            temp_threshold_ = settings.GetInt("temp_threshold", 3000);
-            humi_threshold_ = settings.GetInt("humi_threshold", 8000);
+
+            // 加载传感器上下阈值
+            temp_threshold_high_ = settings.GetInt("temp_high", 3000);
+            temp_threshold_low_ = settings.GetInt("temp_low", 1000);
+            humi_threshold_high_ = settings.GetInt("humi_high", 8000);
+            humi_threshold_low_ = settings.GetInt("humi_low", 2000);
+            hcho_threshold_high_ = settings.GetInt("hcho_high", 100);
+            hcho_threshold_low_ = settings.GetInt("hcho_low", 10);
+            light_threshold_high_ = settings.GetInt("light_high", 80);
+            light_threshold_low_ = settings.GetInt("light_low", 20);
+            rain_threshold_high_ = settings.GetInt("rain_high", 70);
+            rain_threshold_low_ = settings.GetInt("rain_low", 10);
+
+            // 加载联动阈值
+            fan_temp_threshold_ = settings.GetInt("fan_temp", 2800);
+            window_rain_threshold_ = settings.GetInt("window_rain", 30);
         }
 
         void PublishData()

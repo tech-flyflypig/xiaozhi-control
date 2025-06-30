@@ -70,7 +70,12 @@ private:
     
     // 从NVS加载配置
     void LoadConfig() {
-        Settings settings("automation", false);
+        LoadThresholds();
+    }
+
+    // 重新加载阈值（从统一存储）
+    void LoadThresholds() {
+        Settings settings("data_mqtt", false);  // 使用统一的存储命名空间
 
         // 加载传感器阈值 - 上下阈值
         temp_threshold_high_ = settings.GetInt("temp_high", 3000);    // 默认30°C
@@ -87,6 +92,11 @@ private:
         // 加载联动阈值
         fan_temp_threshold_ = settings.GetInt("fan_temp", 2800);      // 默认28°C
         window_rain_threshold_ = settings.GetInt("window_rain", 30);  // 默认30%
+
+        ESP_LOGI(TAG, "阈值已重新加载: 温度%.1f-%.1f°C, 湿度%.1f-%.1f%%, 甲醛%d-%d μg/m³",
+                temp_threshold_low_/100.0f, temp_threshold_high_/100.0f,
+                humi_threshold_low_/100.0f, humi_threshold_high_/100.0f,
+                hcho_threshold_low_, hcho_threshold_high_);
     }
     
     // 保存配置到NVS
@@ -431,6 +441,13 @@ public:
             humi_alarm_active_ = false;
             hcho_alarm_active_ = false;
             ESP_LOGI(TAG, "所有报警状态已重置");
+        });
+
+        // 重新加载阈值方法
+        methods_.AddMethod("reload_thresholds", "重新加载阈值配置", ParameterList(),
+                          [this](const ParameterList& parameters) {
+            LoadThresholds();
+            ESP_LOGI(TAG, "阈值配置已重新加载");
         });
 
         // 创建定时器，每秒检查一次

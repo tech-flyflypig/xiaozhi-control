@@ -865,6 +865,13 @@ namespace iot
             if (need_save) {
                 SaveThresholds();
                 ESP_LOGI(TAG, "MQTT客户端阈值配置已保存到NVS");
+
+                // 通知自动化控制器重新加载阈值
+                auto automation_controller = thing_manager.GetThingByName("AutomationController");
+                if (automation_controller) {
+                    automation_controller->InvokeMethod("reload_thresholds");
+                    ESP_LOGI(TAG, "已通知自动化控制器重新加载阈值");
+                }
             }
 
             cJSON_Delete(root);

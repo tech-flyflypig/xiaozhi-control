@@ -975,6 +975,7 @@ namespace iot
             bool fan_status = false;
             bool window_status = false;
             std::string light_status = "off";
+            int link_status = 0;
 
             // 获取甲醛传感器数据
             auto hcho_thing = thing_manager.GetThingByName("HCHOSensor");
@@ -1035,9 +1036,20 @@ namespace iot
             if (fan_thing)
             {
                 auto power_property = fan_thing->GetProperty("power");
+                auto auto_mode_property = fan_thing->GetProperty("auto_mode");
                 if (power_property && power_property->type() == kValueTypeBoolean)
                 {
                     fan_status = power_property->boolean();
+                }
+                if (auto_mode_property && auto_mode_property->type() == kValueTypeBoolean)
+                {
+                    if(auto_mode_property->boolean()){
+                        link_status|=1 << 1;
+                    }
+                    else    
+                    {
+                        link_status&=~(1 << 1);
+                    }
                 }
             }
 
@@ -1046,9 +1058,20 @@ namespace iot
             if (window_thing)
             {
                 auto status_property = window_thing->GetProperty("opened");
+                auto auto_mode_property = window_thing->GetProperty("auto_mode");
                 if (status_property && status_property->type() == kValueTypeBoolean)
                 {
                     window_status = status_property->boolean();
+                }   
+                if (auto_mode_property && auto_mode_property->type() == kValueTypeBoolean)
+                {
+                    if(auto_mode_property->boolean()){
+                        link_status|=1 << 2;
+                    }
+                    else    
+                    {
+                        link_status&=~(1 << 2);
+                    }
                 }
             }
 
@@ -1112,6 +1135,8 @@ namespace iot
             cJSON_AddBoolToObject(root, "FAN", fan_status);
             cJSON_AddBoolToObject(root, "WINDOW", window_status);
             cJSON_AddStringToObject(root, "LIGHT", light_status.c_str());
+            cJSON_AddNumberToObject(root, "LINK", link_status);
+            
             // 转换为字符串
             char *json_str = cJSON_PrintUnformatted(root);
             std::string payload(json_str);
